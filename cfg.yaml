@@ -1,0 +1,135 @@
+# Enhanced HGTD Configuration with Superior Implementations
+# Based on analysis of improved architectures
+
+# Data configuration
+data_root: "data/processed"
+batch_size: 32
+
+# Enhanced model architecture
+latent_dim: 256
+num_hier_blocks: 4 # molecular, pathway, systemic, phenotype
+mask_dropout: 0.1
+
+# Enhanced attention configuration
+attention:
+  num_heads: 8
+  hierarchy_levels: ["molecular", "pathway", "systemic", "phenotype"]
+  dropout: 0.1
+  use_enhanced_attention: true # Enable enhanced hierarchical attention
+
+# Enhanced diffusion configuration
+diffusion:
+  timesteps: 1000
+  use_enhanced_flow_matching: true # Enable improved flow matcher
+  per_mod_noise: [0.1, 0.1, 0.15, 0.05, 0.2, 0.25, 0.05] # gene to clinical
+  beta_start: 0.0001
+  beta_end: 0.02
+  prediction_type: "epsilon"
+
+# Knowledge-guided energy diffusion (novel feature)
+use_energy_diffusion: false # Set to true to enable KG-EDN
+energy_constraints:
+  lambda_stoichiometry: 1.0
+  lambda_thermodynamic: 0.1
+  lambda_pathway: 0.5
+  lambda_energy: 0.3
+
+# Training configuration
+optim:
+  lr: 0.001
+  weight_decay: 0.0001
+  scheduler: "cosine"
+  warmup_steps: 1000
+
+# Enhanced critic configuration
+critic_coefs:
+  local: 0.2
+  global: 0.2
+  alignment: 0.1 # New: cross-modal alignment loss
+
+# Enhanced curriculum training
+curriculum:
+  epochs_per_phase: [20, 20, 20, 200] # unimodal, alignment, hierarchy, full
+  use_enhanced_phases: true
+
+# Enhanced evaluation
+evaluation:
+  use_enhanced_biological_coherence: true
+  target_coherence_threshold: 0.95
+  evaluate_every_n_epochs: 5
+
+  # Biological coherence metrics
+  metrics:
+    pathway_enrichment: true
+    covariance_preservation: true
+    clinical_consistency: true
+    graph_topology: true
+
+  # Evaluation parameters
+  pathway_top_n: 50
+  graph_correlation_threshold: 0.5
+
+# Enhanced logging
+logging:
+  log_level: "INFO"
+  log_attention_maps: true
+  log_energy_components: true
+  save_samples_every_n_epochs: 10
+
+# Device configuration
+device: "cuda"
+mixed_precision: true
+gradient_checkpointing: true # For 24GB GPUs
+
+# Model checkpointing
+checkpoint:
+  save_best: true
+  save_latest: true
+  save_every_n_epochs: 5
+  monitor_metric: "overall_coherence"
+
+# Experiment tracking
+wandb:
+  project: "hgtd_enhanced"
+  entity: null
+  tags: ["enhanced", "biological_coherence", "hgtd"]
+
+# Advanced features
+advanced:
+  use_mixture_of_experts: false # Set to true for MoE-VAE-GAN
+  use_rl_teacher: false # Set to true for RLT-GAN
+  num_experts: 7 # For MoE approach
+
+# Pathway-aware tokenization
+use_pathway_tokenizer: true # Enable pathway-aware tokenizer for better biological structure
+
+# Per-modality configurations
+modalities:
+  gene:
+    encoder_type: "graphsage"
+    hidden_dims: [512, 256]
+    dropout: 0.2
+  protein:
+    encoder_type: "graphsage"
+    hidden_dims: [512, 256]
+    dropout: 0.2
+  methylation:
+    encoder_type: "gat"
+    hidden_dims: [256, 256]
+    dropout: 0.15
+  variant:
+    encoder_type: "graphsage"
+    hidden_dims: [128, 256]
+    dropout: 0.1
+  metabolite:
+    encoder_type: "gat"
+    hidden_dims: [256, 256]
+    dropout: 0.25
+  microbiome:
+    encoder_type: "graphsage"
+    hidden_dims: [256, 256]
+    dropout: 0.3
+  clinical:
+    encoder_type: "mlp"
+    hidden_dims: [128, 256]
+    dropout: 0.1
