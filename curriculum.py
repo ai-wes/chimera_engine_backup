@@ -519,7 +519,18 @@ class CurriculumTrainer:
         total_global_gen = 0.0
         num_batches = 0
         gradient_norms = []
-        
+
+        # Automatically enable RL modulation when coherence is high enough
+        if (not self.use_rl_modulation and epoch >= 30
+                and self.previous_epoch_coherence > 0.70):
+            self.use_rl_modulation = True
+            print(f"\033[96mEnabling RL modulation at epoch {epoch} (prev coherence {self.previous_epoch_coherence:.1%})\033[0m")
+
+        if self.use_rl_modulation and len(self.coherence_history) >= 5:
+            recent_var = np.var(self.coherence_history[-5:])
+            if recent_var < 1e-4:
+                self.rl_modulation_strength = min(self.rl_modulation_strength * 1.5, 0.4)
+
         # Initialize critic optimizer if not exists
         if self.critic_opt is None:
             # Create critics if they don't exist
@@ -801,9 +812,45 @@ class CurriculumTrainer:
                                 else:
                                     modality_score_dict[mod] = 0.0
                         self.epoch_modality_scores.append(modality_score_dict)
-                        
-                        # Handle RL training if enabled (rest of RL code remains the same)
-                        # ... [RL training code would go here]
+
+                        # ===== RL TRAINING =====
+                        if self.use_rl_modulation and epoch > 50:
+                            # --- Unified RL agent ---
+                            if not self.use_modality_specific_rl and rl_action is not None:
+                                reward = self.rl_agent.compute_intrinsic_reward(
+                                    current_coherence,
+                                    modality_score_dict,
+                                    previous_coherence=self.previous_epoch_coherence
+                                )
+                                self.rl_agent.store_transition(
+                                    z_fake_original.detach(),
+                                    rl_action.detach(),
+                                    rl_log_prob.detach(),
+                                    rl_value.detach(),
+                                    reward,
+                                    False
+                                )
+                                if len(self.rl_agent.memory) >= self.rl_update_frequency:
+                                    self.rl_agent.update(self.rl_opt)
+
+                            # --- Modality specific RL agents ---
+                            if self.use_modality_specific_rl and modality_rl_actions:
+                                modality_rewards = {}
+                                for mod, action_tuple in modality_rl_actions.items():
+                                    mod_score = modality_score_dict.get(mod, 0.0)
+                                    checks = {}
+                                    if 'modality_specific' in coherence_results and 'scores' in coherence_results['modality_specific']:
+                                        checks = coherence_results['modality_specific']['scores'].get(mod, {}).get('checks', {})
+                                    modality_rewards[mod] = self.modality_rl_system.modality_agents[mod].compute_modality_reward(
+                                        mod_score, checks)
+
+                                self.modality_rl_system.store_transitions(
+                                    {mod: z_fake_original for mod in modality_rl_actions.keys()},
+                                    modality_rl_actions,
+                                    modality_rewards
+                                )
+                                if batch_idx % self.rl_update_frequency == 0:
+                                    self.modality_rl_system.update_all_agents(self.modality_rl_optimizers)
                         
                         # Log to wandb
                         wandb.log({
@@ -955,7 +1002,12 @@ class CurriculumTrainer:
         # Alert if below 95%
         if avg_coherence < 0.95:
             print(f"\033[93mWARNING: Coherence {avg_coherence:.1%} is below 95% threshold!\033[0m")
-        
+
+        # Track coherence history for RL plateau detection
+        self.coherence_history.append(avg_coherence)
+        if len(self.coherence_history) > 10:
+            self.coherence_history.pop(0)
+
         self.model.train()
         return avg_coherence
                 
